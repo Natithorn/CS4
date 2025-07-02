@@ -18,13 +18,14 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "npx vite build",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "postinstall": "chmod +x node_modules/.bin/*",
     "preview": "vite preview",
     "start": "vite"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": "18.x",
+    "npm": "8.x"
   },
   "browserslist": {
     "production": [
