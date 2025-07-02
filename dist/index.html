@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Path of Heroes</title>
+    <meta name="description" content="เกม RPG ที่สร้างด้วย React และ Zustand พร้อมระบบการต่อสู้แบบเทิร์น" />
+    <style>
+      /* Loading screen styles */
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      
+      .loading-screen.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loading-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .game-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      }
+      
+      .game-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-970b0765.js"></script>
+    <link rel="stylesheet" href="/assets/index-d1b05336.css">
+  </head>
+  <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-spinner"></div>
+      <h1 class="game-title">⚔️ Path of Heroes</h1>
+      <p class="game-subtitle">กำลังโหลด...</p>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="root"></div>
+    
+    
+    
+    <!-- Hide loading screen when page loads -->
+    <script>
+      window.addEventListener('load', function() {
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.classList.add('hide');
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 500);
+          }
+        }, 1000);
+      });
+    </script>
+  </body>
+</html> 

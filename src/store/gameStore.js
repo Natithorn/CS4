@@ -69,7 +69,7 @@ const useGameStore = create(
             skills: [...defaultSkills],
             battleLog: [{
               type: 'system',
-              text: 'ยินดีต้อนรับสู่เกม RPG!',
+              text: 'ยินดีต้อนรับสู่เกม JRPG!',
               timestamp: Date.now()
             }]
           });
@@ -396,6 +396,10 @@ const useGameStore = create(
           timestamp: Date.now()
         });
         
+        // Process status effects and update cooldowns at end of player turn
+        get().processStatusEffects();
+        get().updateCooldowns();
+        
         // Change turn to enemy
         set({ currentTurn: 'enemy' });
         
@@ -440,6 +444,10 @@ const useGameStore = create(
           timestamp: Date.now()
         });
         
+        // Process status effects and update cooldowns at end of enemy turn
+        get().processStatusEffects();
+        get().updateCooldowns();
+        
         // Change turn back to player
         set({ currentTurn: 'player' });
         
@@ -481,6 +489,37 @@ const useGameStore = create(
             heal: healAmount,
             timestamp: Date.now()
           });
+        } else if (skill.type === 'buff') {
+          // Apply buff to hero
+          get().applyStatusEffect(hero, skill.effects, 'buff');
+          
+          get().addLogMessage({
+            type: 'buff',
+            text: `${hero.name} ใช้ ${skill.name}`,
+            timestamp: Date.now()
+          });
+        } else if (skill.type === 'debuff') {
+          // Apply debuff to enemy
+          if (gameState === 'stage' && stageEnemies.length > 0) {
+            const targetEnemy = stageEnemies.find(enemy => enemy.instanceId === targetId);
+            if (targetEnemy && targetEnemy.currentHp > 0) {
+              get().applyStatusEffect(targetEnemy, skill.effects, 'debuff');
+              
+              get().addLogMessage({
+                type: 'debuff',
+                text: `${hero.name} ใช้ ${skill.name} ใส่ ${targetEnemy.name}`,
+                timestamp: Date.now()
+              });
+            }
+          } else if (currentEnemy) {
+            get().applyStatusEffect(currentEnemy, skill.effects, 'debuff');
+            
+            get().addLogMessage({
+              type: 'debuff',
+              text: `${hero.name} ใช้ ${skill.name} ใส่ ${currentEnemy.name}`,
+              timestamp: Date.now()
+            });
+          }
         } else if (skill.type === 'attack') {
           // Handle stage mode vs single battle mode
           if (gameState === 'stage' && stageEnemies.length > 0) {
@@ -555,6 +594,10 @@ const useGameStore = create(
               : s
           )
         }));
+        
+        // Process status effects and update cooldowns at end of player turn
+        get().processStatusEffects();
+        get().updateCooldowns();
         
         // Change turn to enemy
         set({ currentTurn: 'enemy' });
@@ -729,6 +772,10 @@ const useGameStore = create(
           
           if (shouldChangeTurn) {
             console.log('Changing turn to enemy');
+            // Process status effects and update cooldowns at end of player turn
+            get().processStatusEffects();
+            get().updateCooldowns();
+            
             set({ currentTurn: 'enemy' });
             const { gameState } = get();
             if (gameState === 'stage') {
@@ -1110,10 +1157,176 @@ const useGameStore = create(
             // If this is the last enemy's attack, change turn back to player
             if (index === aliveEnemies.length - 1) {
               setTimeout(() => {
+                // Process status effects and update cooldowns at end of enemy turn
+                get().processStatusEffects();
+                get().updateCooldowns();
                 set({ currentTurn: 'player' });
               }, 1000);
             }
           }, index * 800); // Stagger enemy attacks
+        });
+      },
+
+      // Apply status effects (buffs/debuffs)
+      applyStatusEffect: (target, effects, effectType) => {
+        if (!effects || !Array.isArray(effects)) return;
+        
+        effects.forEach(effect => {
+          switch (effect.type) {
+            case 'stat_buff':
+            case 'stat_debuff':
+              const currentStat = target[effect.stat] || 0;
+              const buffValue = Math.floor(currentStat * effect.value);
+              
+              if (effectType === 'buff') {
+                // Apply buff to hero
+                set(state => ({
+                  hero: {
+                    ...state.hero,
+                    [effect.stat]: state.hero[effect.stat] + buffValue,
+                    statusEffects: [
+                      ...state.hero.statusEffects,
+                      {
+                        type: effect.type,
+                        stat: effect.stat,
+                        value: buffValue,
+                        duration: effect.duration,
+                        isPositive: true
+                      }
+                    ]
+                  }
+                }));
+                
+                get().addLogMessage({
+                  type: 'buff',
+                  text: `${effect.stat} เพิ่มขึ้น ${buffValue} จุด เป็นเวลา ${effect.duration} เทิร์น`,
+                  timestamp: Date.now()
+                });
+              } else {
+                // Apply debuff to enemy
+                const { gameState, stageEnemies, currentEnemy } = get();
+                
+                if (gameState === 'stage') {
+                  set(state => ({
+                    stageEnemies: state.stageEnemies.map(enemy =>
+                      enemy.instanceId === target.instanceId
+                        ? {
+                            ...enemy,
+                            [effect.stat]: Math.max(1, enemy[effect.stat] - buffValue),
+                            statusEffects: [
+                              ...enemy.statusEffects,
+                              {
+                                type: effect.type,
+                                stat: effect.stat,
+                                value: -buffValue,
+                                duration: effect.duration,
+                                isPositive: false
+                              }
+                            ]
+                          }
+                        : enemy
+                    )
+                  }));
+                } else if (currentEnemy && target === currentEnemy) {
+                  set(state => ({
+                    currentEnemy: {
+                      ...state.currentEnemy,
+                      [effect.stat]: Math.max(1, state.currentEnemy[effect.stat] - buffValue),
+                      statusEffects: [
+                        ...state.currentEnemy.statusEffects,
+                        {
+                          type: effect.type,
+                          stat: effect.stat,
+                          value: -buffValue,
+                          duration: effect.duration,
+                          isPositive: false
+                        }
+                      ]
+                    }
+                  }));
+                }
+                
+                get().addLogMessage({
+                  type: 'debuff',
+                  text: `${target.name} ${effect.stat} ลดลง ${buffValue} จุด เป็นเวลา ${effect.duration} เทิร์น`,
+                  timestamp: Date.now()
+                });
+              }
+              break;
+              
+            case 'regeneration':
+              if (effectType === 'buff') {
+                set(state => ({
+                  hero: {
+                    ...state.hero,
+                    statusEffects: [
+                      ...state.hero.statusEffects,
+                      {
+                        type: 'regeneration',
+                        value: effect.value,
+                        duration: effect.duration,
+                        isPositive: true
+                      }
+                    ]
+                  }
+                }));
+                
+                get().addLogMessage({
+                  type: 'buff',
+                  text: `ได้รับการฟื้นฟูต่อเนื่อง ${effect.value} HP/เทิร์น เป็นเวลา ${effect.duration} เทิร์น`,
+                  timestamp: Date.now()
+                });
+              }
+              break;
+              
+            case 'poison':
+              if (effectType === 'debuff') {
+                const { gameState, stageEnemies, currentEnemy } = get();
+                
+                if (gameState === 'stage') {
+                  set(state => ({
+                    stageEnemies: state.stageEnemies.map(enemy =>
+                      enemy.instanceId === target.instanceId
+                        ? {
+                            ...enemy,
+                            statusEffects: [
+                              ...enemy.statusEffects,
+                              {
+                                type: 'poison',
+                                value: effect.value,
+                                duration: effect.duration,
+                                isPositive: false
+                              }
+                            ]
+                          }
+                        : enemy
+                    )
+                  }));
+                } else if (currentEnemy && target === currentEnemy) {
+                  set(state => ({
+                    currentEnemy: {
+                      ...state.currentEnemy,
+                      statusEffects: [
+                        ...state.currentEnemy.statusEffects,
+                        {
+                          type: 'poison',
+                          value: effect.value,
+                          duration: effect.duration,
+                          isPositive: false
+                        }
+                      ]
+                    }
+                  }));
+                }
+                
+                get().addLogMessage({
+                  type: 'debuff',
+                  text: `${target.name} เป็นพิษ! จะสูญเสีย ${effect.value} HP/เทิร์น เป็นเวลา ${effect.duration} เทิร์น`,
+                  timestamp: Date.now()
+                });
+              }
+              break;
+          }
         });
       },
 
@@ -1125,6 +1338,145 @@ const useGameStore = create(
             currentCooldown: Math.max(0, skill.currentCooldown - 1)
           }))
         }));
+      },
+
+      // Process status effects at the end of each turn
+      processStatusEffects: () => {
+        const { hero, stageEnemies, currentEnemy, gameState } = get();
+        
+        // Process hero status effects
+        if (hero.statusEffects && hero.statusEffects.length > 0) {
+          let newHp = hero.currentHp;
+          const newStatusEffects = [];
+          
+          hero.statusEffects.forEach(effect => {
+            if (effect.type === 'regeneration') {
+              newHp = Math.min(hero.maxHp, newHp + effect.value);
+              get().addLogMessage({
+                type: 'heal',
+                text: `ฟื้นฟู HP ${effect.value} จุด จากการรักษาต่อเนื่อง`,
+                timestamp: Date.now()
+              });
+            }
+            
+            // Decrease duration and keep if still active
+            if (effect.duration > 1) {
+              newStatusEffects.push({
+                ...effect,
+                duration: effect.duration - 1
+              });
+            } else {
+              // Effect expired, remove stat buff/debuff
+              if (effect.type === 'stat_buff' && effect.isPositive) {
+                set(state => ({
+                  hero: {
+                    ...state.hero,
+                    [effect.stat]: state.hero[effect.stat] - effect.value
+                  }
+                }));
+                get().addLogMessage({
+                  type: 'system',
+                  text: `${effect.stat} กลับสู่ปกติ`,
+                  timestamp: Date.now()
+                });
+              }
+            }
+          });
+          
+          set(state => ({
+            hero: {
+              ...state.hero,
+              currentHp: newHp,
+              statusEffects: newStatusEffects
+            }
+          }));
+        }
+        
+        // Process enemy status effects
+        if (gameState === 'stage' && stageEnemies.length > 0) {
+          const updatedEnemies = stageEnemies.map(enemy => {
+            if (!enemy.statusEffects || enemy.statusEffects.length === 0) return enemy;
+            
+            let newHp = enemy.currentHp;
+            const newStatusEffects = [];
+            
+            enemy.statusEffects.forEach(effect => {
+              if (effect.type === 'poison') {
+                newHp = Math.max(0, newHp - effect.value);
+                get().addLogMessage({
+                  type: 'damage',
+                  text: `${enemy.name} สูญเสีย HP ${effect.value} จุด จากพิษ`,
+                  timestamp: Date.now()
+                });
+              }
+              
+              // Decrease duration and keep if still active
+              if (effect.duration > 1) {
+                newStatusEffects.push({
+                  ...effect,
+                  duration: effect.duration - 1
+                });
+              } else {
+                // Effect expired, restore stats for debuffs
+                if (effect.type === 'stat_debuff' && !effect.isPositive) {
+                  // Note: We would need to track original stats to restore properly
+                  // For now, we'll just log the expiration
+                  get().addLogMessage({
+                    type: 'system',
+                    text: `${enemy.name} ${effect.stat} กลับสู่ปกติ`,
+                    timestamp: Date.now()
+                  });
+                }
+              }
+            });
+            
+            return {
+              ...enemy,
+              currentHp: newHp,
+              statusEffects: newStatusEffects
+            };
+          });
+          
+          set({ stageEnemies: updatedEnemies });
+        } else if (currentEnemy && currentEnemy.statusEffects) {
+          // Single enemy mode
+          let newHp = currentEnemy.currentHp;
+          const newStatusEffects = [];
+          
+          currentEnemy.statusEffects.forEach(effect => {
+            if (effect.type === 'poison') {
+              newHp = Math.max(0, newHp - effect.value);
+              get().addLogMessage({
+                type: 'damage',
+                text: `${currentEnemy.name} สูญเสีย HP ${effect.value} จุด จากพิษ`,
+                timestamp: Date.now()
+              });
+            }
+            
+            if (effect.duration > 1) {
+              newStatusEffects.push({
+                ...effect,
+                duration: effect.duration - 1
+              });
+            } else {
+              if (effect.type === 'stat_debuff' && !effect.isPositive) {
+                get().addLogMessage({
+                  type: 'system',
+                  text: `${currentEnemy.name} ${effect.stat} กลับสู่ปกติ`,
+                  timestamp: Date.now()
+                });
+              }
+            }
+          });
+          
+          set(state => ({
+            currentEnemy: {
+              ...state.currentEnemy,
+              currentHp: newHp,
+              statusEffects: newStatusEffects
+            }
+          }));
+        }
       },
       
       resetGame: () => {

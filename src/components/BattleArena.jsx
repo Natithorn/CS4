@@ -57,7 +57,7 @@ const BattleArena = () => {
       }
     } else if (actionType === 'skill') {
       console.log('Skill selected:', data);
-      if (data.targetType === 'self' || data.type === 'heal') {
+      if (data.targetType === 'self' || data.type === 'heal' || data.type === 'buff') {
         // Self-targeting skills (heal, buffs)
         useSkill(data.id);
       } else {

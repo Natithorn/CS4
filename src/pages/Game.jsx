@@ -306,17 +306,27 @@ const Game = () => {
                   {/* Center - Hero Portrait & Stats */}
                   <div className="text-center space-y-6">
                     {/* Hero Portrait */}
-                    <div className="relative">
-                      <ImageComponent
-                        src={getImagePath('characters', 'MC.png')}
-                        fallback="🧙‍♂️"
-                        alt="Hero"
-                        width={150}
-                        height={150}
-                        className="rounded-full shadow-2xl border-4 border-amber-400 mx-auto"
-                      />
-                      {/* Glow effect */}
-                      <div className="absolute inset-0 rounded-full bg-amber-400 opacity-20 blur-xl"></div>
+                    <div className="relative inline-block">
+                      <div className="w-44 h-44 rounded-full overflow-hidden border-4 border-amber-400 shadow-2xl mx-auto bg-gradient-to-br from-slate-600 to-slate-800 p-1">
+                        <div className="w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-amber-100 to-amber-200">
+                          <ImageComponent
+                            src={getImagePath('characters', 'MC.png')}
+                            fallback="🧙‍♂️"
+                            alt="Hero"
+                            width={176}
+                            height={176}
+                            className="w-full h-full object-cover scale-110 hover:scale-115 transition-transform duration-300"
+                            style={{ objectPosition: 'center center' }}
+                          />
+                        </div>
+                      </div>
+                      {/* Outer glow effect */}
+                      <div className="absolute inset-0 rounded-full bg-amber-400 opacity-25 blur-xl animate-pulse"></div>
+                      {/* Inner shine */}
+                      <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-transparent via-white to-transparent opacity-20 pointer-events-none"></div>
+                      {/* Decorative rings */}
+                      <div className="absolute -inset-3 rounded-full border border-amber-300 opacity-40 animate-pulse"></div>
+                      <div className="absolute -inset-5 rounded-full border border-amber-400 opacity-30 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
                     </div>
 
                     {/* Hero Name & Level */}
