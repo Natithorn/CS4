@@ -50,6 +50,12 @@ const useGameStore = create(
       // Inventory & Skills
       inventory: [],
       skills: [],
+      equippedItems: {
+        weapon: null,
+        armor: null,
+        shield: null,
+        accessory: null
+      },
       
       // Game Actions
       initializeGame: () => {
@@ -581,7 +587,8 @@ const useGameStore = create(
         console.log('Using item:', item);
         
         // Check if item can be used
-        if (!isInBattle && item.battleOnly) {
+        // Only restrict truly battle-specific items like bombs and debuffs
+        if (!isInBattle && item.battleOnly && (item.id === 'bomb' || item.id === 'poison_vial' || item.id === 'defense_potion')) {
           console.log('Cannot use battle-only item outside of battle');
           return;
         }
@@ -611,8 +618,8 @@ const useGameStore = create(
           });
 
           get().addLogMessage({
-            type: 'item',
-            text: `ดื่ม ${item.name} แล้ว! สถานะได้รับการปรับปรุงอย่างถาวร`,
+            type: 'system',
+            text: `ใช้ ${item.name}`,
             timestamp: Date.now()
           });
 
@@ -646,9 +653,8 @@ const useGameStore = create(
                 }));
                 
                 get().addLogMessage({
-                  type: 'heal',
-                  text: `${hero.name} ใช้ ${item.name} ฟื้นฟู HP ${healAmount} จุด`,
-                  heal: healAmount,
+                  type: 'system',
+                  text: `ใช้ ${item.name}`,
                   timestamp: Date.now()
                 });
                 console.log('Healed for:', healAmount);
@@ -667,7 +673,7 @@ const useGameStore = create(
                 
                 get().addLogMessage({
                   type: 'system',
-                  text: `${hero.name} ใช้ ${item.name} ฟื้นฟู MP ${mpAmount} จุด`,
+                  text: `ใช้ ${item.name}`,
                   timestamp: Date.now()
                 });
                 console.log('Restored MP for:', mpAmount);
@@ -712,19 +718,29 @@ const useGameStore = create(
           ).filter(invItem => invItem.quantity > 0)
         }));
         
-        console.log('Item consumed, changing turn to enemy');
+        console.log('Item consumed');
         
-        // If in battle, change turn to enemy
+        // If in battle, change turn to enemy (only for non-healing items or if required by game logic)
         if (get().isInBattle) {
-          set({ currentTurn: 'enemy' });
-          const { gameState } = get();
-          if (gameState === 'stage') {
-            const aliveEnemies = get().stageEnemies.filter(enemy => enemy.currentHp > 0);
-            if (aliveEnemies.length > 0) {
-              setTimeout(() => get().stageEnemyTurn(), 1000);
+          // Only change turn for items that should affect battle flow
+          const shouldChangeTurn = item.effects?.some(effect => 
+            effect.type === 'damage' || effect.type === 'debuff' || effect.type === 'buff'
+          );
+          
+          if (shouldChangeTurn) {
+            console.log('Changing turn to enemy');
+            set({ currentTurn: 'enemy' });
+            const { gameState } = get();
+            if (gameState === 'stage') {
+              const aliveEnemies = get().stageEnemies.filter(enemy => enemy.currentHp > 0);
+              if (aliveEnemies.length > 0) {
+                setTimeout(() => get().stageEnemyTurn(), 1000);
+              }
+            } else {
+              setTimeout(() => get().enemyTurn(), 1000);
             }
           } else {
-            setTimeout(() => get().enemyTurn(), 1000);
+            console.log('Item used without changing turn (healing item)');
           }
         }
       },
@@ -910,13 +926,25 @@ const useGameStore = create(
       },
 
       equipItem: (item) => {
-        const { inventory } = get();
+        const { inventory, equippedItems } = get();
         
         // Find the item in inventory
         const itemIndex = inventory.findIndex(invItem => invItem.id === item.id);
         if (itemIndex === -1 || inventory[itemIndex].quantity <= 0) {
           console.log('ไม่มีไอเท็มนี้ในกระเป๋า');
           return false;
+        }
+
+        // Determine equipment slot
+        let equipSlot = item.type;
+        if (item.type === 'weapon') equipSlot = 'weapon';
+        else if (item.type === 'armor') equipSlot = 'armor';
+        else if (item.type === 'shield') equipSlot = 'shield';
+        else equipSlot = 'accessory';
+
+        // If something is already equipped in this slot, unequip it first
+        if (equippedItems[equipSlot]) {
+          get().unequipItem(equipSlot);
         }
 
         // Apply stats to hero
@@ -940,6 +968,14 @@ const useGameStore = create(
           });
         }
 
+        // Equip the item
+        set(state => ({
+          equippedItems: {
+            ...state.equippedItems,
+            [equipSlot]: { ...item }
+          }
+        }));
+
         // Remove one from inventory
         set(state => {
           const newInventory = [...state.inventory];
@@ -957,6 +993,68 @@ const useGameStore = create(
         get().addLogMessage({
           type: 'system',
           text: `ใส่ ${item.name} แล้ว! สถานะเพิ่มขึ้น`,
+          timestamp: Date.now()
+        });
+
+        return true;
+      },
+
+      unequipItem: (slot) => {
+        const { equippedItems } = get();
+        const item = equippedItems[slot];
+        
+        if (!item) return false;
+
+        // Remove stats from hero
+        if (item.stats) {
+          set(state => {
+            const updatedHero = { ...state.hero };
+            
+            Object.entries(item.stats).forEach(([stat, value]) => {
+              if (stat === 'maxHp') {
+                updatedHero.maxHp = Math.max(1, updatedHero.maxHp - value);
+                updatedHero.currentHp = Math.min(updatedHero.currentHp, updatedHero.maxHp);
+              } else if (stat === 'maxMp') {
+                updatedHero.maxMp = Math.max(0, updatedHero.maxMp - value);
+                updatedHero.currentMp = Math.min(updatedHero.currentMp, updatedHero.maxMp);
+              } else {
+                updatedHero[stat] = Math.max(0, (updatedHero[stat] || 0) - value);
+              }
+            });
+            
+            return { hero: updatedHero };
+          });
+        }
+
+        // Add item back to inventory
+        const { inventory } = get();
+        const existingItemIndex = inventory.findIndex(invItem => invItem.id === item.id);
+        
+        if (existingItemIndex !== -1) {
+          set(state => ({
+            inventory: state.inventory.map((invItem, index) =>
+              index === existingItemIndex
+                ? { ...invItem, quantity: invItem.quantity + 1 }
+                : invItem
+            )
+          }));
+        } else {
+          set(state => ({
+            inventory: [...state.inventory, { ...item, quantity: 1 }]
+          }));
+        }
+
+        // Remove from equipped
+        set(state => ({
+          equippedItems: {
+            ...state.equippedItems,
+            [slot]: null
+          }
+        }));
+
+        get().addLogMessage({
+          type: 'system',
+          text: `ถอด ${item.name} แล้ว!`,
           timestamp: Date.now()
         });
 

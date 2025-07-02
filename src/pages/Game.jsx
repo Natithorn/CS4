@@ -8,6 +8,7 @@ import BattleLog from '../components/BattleLog';
 import BattleArena from '../components/BattleArena';
 import StageSelect from '../components/StageSelect';
 import Shop from '../components/Shop';
+import EquippedItems from '../components/EquippedItems';
 import ImageComponent, { getImagePath } from '../components/ImageComponent';
 
 const Game = () => {
@@ -172,7 +173,7 @@ const Game = () => {
 
       case 'inventory':
         return (
-          <div className="inventory-content relative">
+          <div className="inventory-content relative space-y-6">
             {/* Background decorations */}
             <div className="absolute inset-0 opacity-5 pointer-events-none">
               <div className="absolute top-10 left-10 text-8xl">🎒</div>
@@ -180,19 +181,25 @@ const Game = () => {
               <div className="absolute bottom-20 left-20 text-7xl">⚗️</div>
             </div>
 
-            <div className="relative z-10">
-              <div className="inventory-header mb-6 text-center">
-                <div className="inline-block bg-gradient-to-r from-green-800 via-green-600 to-green-800 px-8 py-4 rounded-xl border-4 border-green-400 shadow-2xl">
-                  <h2 className="text-3xl font-bold text-white drop-shadow-lg">🎒 กระเป๋า 🎒</h2>
-                  <p className="text-green-200 mt-2">จัดการไอเท็มของคุณ</p>
+            <div className="relative z-10 space-y-6">
+              {/* Equipped Items Section */}
+              <EquippedItems />
+              
+              {/* Inventory Items Section */}
+              <div>
+                <div className="inventory-header mb-6 text-center">
+                  <div className="inline-block bg-gradient-to-r from-green-800 via-green-600 to-green-800 px-8 py-4 rounded-xl border-4 border-green-400 shadow-2xl">
+                    <h2 className="text-3xl font-bold text-white drop-shadow-lg">🎒 กระเป๋า 🎒</h2>
+                    <p className="text-green-200 mt-2">จัดการไอเท็มของคุณ</p>
+                  </div>
                 </div>
-              </div>
-              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-xl shadow-2xl border-4 border-green-600">
-                <ItemList 
-                  items={inventory} 
-                  isInBattle={isInBattle}
-                  onItemUse={handleItemUse}
-                />
+                <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-xl shadow-2xl border-4 border-green-600">
+                  <ItemList 
+                    items={inventory} 
+                    isInBattle={isInBattle}
+                    onItemUse={handleItemUse}
+                  />
+                </div>
               </div>
             </div>
           </div>

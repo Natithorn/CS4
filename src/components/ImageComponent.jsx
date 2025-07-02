@@ -28,7 +28,7 @@ const ImageComponent = ({
   // ถ้ามี src และรูปโหลดได้ ใช้รูปภาพ
   if (src && !imageError) {
     return (
-      <div className={`image-container ${className}`} style={style}>
+      <div className={`image-container relative ${className}`} style={style}>
         <img
           src={src}
           alt={alt}
@@ -47,6 +47,20 @@ const ImageComponent = ({
         {!imageLoaded && !imageError && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+          </div>
+        )}
+        {/* Fallback when image fails to load */}
+        {imageError && (
+          <div 
+            className={`fallback-container flex items-center justify-center ${className}`}
+            style={{ 
+              fontSize: width ? `${Math.min(width, height || width) * 0.6}px` : '2rem',
+              width,
+              height,
+              ...style
+            }}
+          >
+            <span className="select-none">{fallback}</span>
           </div>
         )}
       </div>
@@ -73,6 +87,12 @@ const ImageComponent = ({
 export const getImagePath = (category, filename) => {
   // ใช้ import.meta.env.BASE_URL สำหรับ Vite
   const basePath = import.meta.env.BASE_URL || '/';
+  
+  // สำหรับไอเท็ม ถ้าไม่มีรูปให้ return null เพื่อใช้ fallback
+  if (category === 'items') {
+    return null; // จะไปใช้ fallback emoji แทน
+  }
+  
   return `${basePath}images/${category}/${filename}`;
 };
 

@@ -151,7 +151,7 @@ export const enemies = [
   },
   {
     id: 'mage',
-    name: 'เวทมนตร์',
+    name: 'จอมเวทย์',
     sprite: 'Mage.png',
     level: 5,
     maxHp: 80,
