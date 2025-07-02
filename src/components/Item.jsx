@@ -13,6 +13,18 @@ const Item = ({ item, onUse, isInBattle = false }) => {
     }
   };
 
+  const handleEquipItem = () => {
+    equipItem(item);
+  };
+
+  const isEquipment = () => {
+    return item.type === 'weapon' || item.type === 'armor' || item.type === 'shield';
+  };
+
+  const isPermanentPotion = () => {
+    return item.type === 'permanent';
+  };
+
   const canUseItem = () => {
     if (!isInBattle && item.battleOnly) return false;
     if (isInBattle && item.outOfBattleOnly) return false;
@@ -49,6 +61,20 @@ const Item = ({ item, onUse, isInBattle = false }) => {
             ))}
           </div>
         )}
+
+        {/* Item Stats */}
+        {item.stats && (
+          <div className="item-stats mb-2">
+            {Object.entries(item.stats).map(([stat, value]) => (
+              <div key={stat} className="stat text-xs text-blue-600">
+                • {stat === 'attack' ? 'พลังโจมตี' : 
+                   stat === 'defense' ? 'การป้องกัน' : 
+                   stat === 'maxHp' ? 'HP สูงสุด' : 
+                   stat === 'maxMp' ? 'MP สูงสุด' : stat}: +{value}
+              </div>
+            ))}
+          </div>
+        )}
         
         {/* Item Value */}
         {item.value && (
@@ -57,18 +83,46 @@ const Item = ({ item, onUse, isInBattle = false }) => {
           </div>
         )}
         
-        {/* Use Button */}
-        <button
-          onClick={handleUseItem}
-          disabled={!canUseItem()}
-          className={`use-button w-full py-2 px-3 rounded text-sm font-medium transition-colors ${
-            canUseItem()
-              ? 'bg-green-500 hover:bg-green-600 text-white'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          {item.quantity <= 0 ? 'หมด' : 'ใช้'}
-        </button>
+        {/* Action Buttons */}
+        <div className="action-buttons space-y-2">
+          {isEquipment() ? (
+            <button
+              onClick={handleEquipItem}
+              disabled={item.quantity <= 0}
+              className={`equip-button w-full py-2 px-3 rounded text-sm font-medium transition-colors ${
+                item.quantity > 0
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {item.quantity <= 0 ? 'หมด' : 'ใส่'}
+            </button>
+          ) : isPermanentPotion() ? (
+            <button
+              onClick={handleUseItem}
+              disabled={item.quantity <= 0}
+              className={`use-button w-full py-2 px-3 rounded text-sm font-medium transition-colors ${
+                item.quantity > 0
+                  ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {item.quantity <= 0 ? 'หมด' : 'ดื่ม'}
+            </button>
+          ) : (
+            <button
+              onClick={handleUseItem}
+              disabled={!canUseItem()}
+              className={`use-button w-full py-2 px-3 rounded text-sm font-medium transition-colors ${
+                canUseItem()
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {item.quantity <= 0 ? 'หมด' : 'ใช้'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

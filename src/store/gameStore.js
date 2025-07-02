@@ -590,78 +590,118 @@ const useGameStore = create(
           return;
         }
         
-        // Apply item effects
-        item.effects.forEach(effect => {
-          console.log('Applying effect:', effect);
-          
-          switch (effect.type) {
-            case 'heal':
-              const healAmount = effect.value;
-              const newHp = Math.min(hero.maxHp, hero.currentHp + healAmount);
-              
-              set(state => ({
-                hero: {
-                  ...state.hero,
-                  currentHp: newHp
-                }
-              }));
-              
-              get().addLogMessage({
-                type: 'heal',
-                text: `${hero.name} ใช้ ${item.name} ฟื้นฟู HP ${healAmount} จุด`,
-                heal: healAmount,
-                timestamp: Date.now()
-              });
-              console.log('Healed for:', healAmount);
-              break;
-              
-            case 'restore_mp':
-              const mpAmount = effect.value;
-              const newMp = Math.min(hero.maxMp, hero.currentMp + mpAmount);
-              
-              set(state => ({
-                hero: {
-                  ...state.hero,
-                  currentMp: newMp
-                }
-              }));
-              
-              get().addLogMessage({
-                type: 'system',
-                text: `${hero.name} ใช้ ${item.name} ฟื้นฟู MP ${mpAmount} จุด`,
-                timestamp: Date.now()
-              });
-              console.log('Restored MP for:', mpAmount);
-              break;
-              
-            case 'damage':
-              // Handle damage to target enemy
-              if (targetId && gameState === 'stage') {
-                const targetEnemy = stageEnemies.find(enemy => enemy.instanceId === targetId);
-                if (targetEnemy && targetEnemy.currentHp > 0) {
-                  const damage = effect.value;
-                  const newEnemyHp = Math.max(0, targetEnemy.currentHp - damage);
-                  
-                  set(state => ({
-                    stageEnemies: state.stageEnemies.map(enemy =>
-                      enemy.instanceId === targetId
-                        ? { ...enemy, currentHp: newEnemyHp }
-                        : enemy
-                    )
-                  }));
-                  
-                  get().addLogMessage({
-                    type: 'damage',
-                    text: `${hero.name} ใช้ ${item.name} โจมตี ${targetEnemy.name} สร้างความเสียหาย ${damage} จุด`,
-                    damage: damage,
-                    timestamp: Date.now()
-                  });
-                  console.log('Dealt damage:', damage, 'to enemy:', targetEnemy.name);
-                }
+        // Handle permanent potions (apply stats immediately)
+        if (item.type === 'permanent' && item.stats) {
+          set(state => {
+            const updatedHero = { ...state.hero };
+            
+            Object.entries(item.stats).forEach(([stat, value]) => {
+              if (stat === 'maxHp') {
+                updatedHero.maxHp += value;
+                updatedHero.currentHp += value; // Also increase current HP
+              } else if (stat === 'maxMp') {
+                updatedHero.maxMp += value;
+                updatedHero.currentMp += value; // Also increase current MP
+              } else {
+                updatedHero[stat] = (updatedHero[stat] || 0) + value;
               }
-              break;
-          }
-        });
+            });
+            
+            return { hero: updatedHero };
+          });
+
+          get().addLogMessage({
+            type: 'item',
+            text: `ดื่ม ${item.name} แล้ว! สถานะได้รับการปรับปรุงอย่างถาวร`,
+            timestamp: Date.now()
+          });
+
+          // Consume item
+          set(state => ({
+            inventory: state.inventory.map((invItem, index) => 
+              index === itemIndex 
+                ? { ...invItem, quantity: invItem.quantity - 1 }
+                : invItem
+            ).filter(invItem => invItem.quantity > 0)
+          }));
+
+          return;
+        }
+
+        // Apply item effects for regular consumables
+        if (item.effects) {
+          item.effects.forEach(effect => {
+            console.log('Applying effect:', effect);
+            
+            switch (effect.type) {
+              case 'heal':
+                const healAmount = effect.value;
+                const newHp = Math.min(hero.maxHp, hero.currentHp + healAmount);
+                
+                set(state => ({
+                  hero: {
+                    ...state.hero,
+                    currentHp: newHp
+                  }
+                }));
+                
+                get().addLogMessage({
+                  type: 'heal',
+                  text: `${hero.name} ใช้ ${item.name} ฟื้นฟู HP ${healAmount} จุด`,
+                  heal: healAmount,
+                  timestamp: Date.now()
+                });
+                console.log('Healed for:', healAmount);
+                break;
+                
+              case 'restore_mp':
+                const mpAmount = effect.value;
+                const newMp = Math.min(hero.maxMp, hero.currentMp + mpAmount);
+                
+                set(state => ({
+                  hero: {
+                    ...state.hero,
+                    currentMp: newMp
+                  }
+                }));
+                
+                get().addLogMessage({
+                  type: 'system',
+                  text: `${hero.name} ใช้ ${item.name} ฟื้นฟู MP ${mpAmount} จุด`,
+                  timestamp: Date.now()
+                });
+                console.log('Restored MP for:', mpAmount);
+                break;
+                
+              case 'damage':
+                // Handle damage to target enemy
+                if (targetId && gameState === 'stage') {
+                  const targetEnemy = stageEnemies.find(enemy => enemy.instanceId === targetId);
+                  if (targetEnemy && targetEnemy.currentHp > 0) {
+                    const damage = effect.value;
+                    const newEnemyHp = Math.max(0, targetEnemy.currentHp - damage);
+                    
+                    set(state => ({
+                      stageEnemies: state.stageEnemies.map(enemy =>
+                        enemy.instanceId === targetId
+                          ? { ...enemy, currentHp: newEnemyHp }
+                          : enemy
+                      )
+                    }));
+                    
+                    get().addLogMessage({
+                      type: 'damage',
+                      text: `${hero.name} ใช้ ${item.name} โจมตี ${targetEnemy.name} สร้างความเสียหาย ${damage} จุด`,
+                      damage: damage,
+                      timestamp: Date.now()
+                    });
+                    console.log('Dealt damage:', damage, 'to enemy:', targetEnemy.name);
+                  }
+                }
+                break;
+            }
+          });
+        }
         
         // Consume item
         set(state => ({
@@ -866,7 +906,7 @@ const useGameStore = create(
           });
         }
 
-                return true;
+        return true;
       },
 
       equipItem: (item) => {
